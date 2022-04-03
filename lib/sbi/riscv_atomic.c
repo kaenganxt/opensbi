@@ -12,6 +12,8 @@
 #include <sbi/riscv_atomic.h>
 #include <sbi/riscv_barrier.h>
 
+#define ONLY_LRSC
+
 long atomic_read(atomic_t *atom)
 {
 	long ret = atom->counter;
@@ -27,6 +29,7 @@ void atomic_write(atomic_t *atom, long value)
 
 long atomic_add_return(atomic_t *atom, long value)
 {
+#ifdef __riscv_atomic
 	long ret;
 #if __SIZEOF_LONG__ == 4
 	__asm__ __volatile__("	amoadd.w.aqrl  %1, %2, %0"
@@ -40,6 +43,9 @@ long atomic_add_return(atomic_t *atom, long value)
 			     : "memory");
 #endif
 	return ret + value;
+#else
+	return atom->counter + value; // TODO: Fix this here
+#endif
 }
 
 long atomic_sub_return(atomic_t *atom, long value)
@@ -167,7 +173,7 @@ long atomic_sub_return(atomic_t *atom, long value)
 
 long atomic_cmpxchg(atomic_t *atom, long oldval, long newval)
 {
-#ifdef __riscv_atomic
+#ifndef ONLY_LRSC
 	return __sync_val_compare_and_swap(&atom->counter, oldval, newval);
 #else
 	return cmpxchg(&atom->counter, oldval, newval);
@@ -177,7 +183,7 @@ long atomic_cmpxchg(atomic_t *atom, long oldval, long newval)
 long atomic_xchg(atomic_t *atom, long newval)
 {
 	/* Atomically set new value and return old value. */
-#ifdef __riscv_atomic
+#ifndef ONLY_LRSC
 	return axchg(&atom->counter, newval);
 #else
 	return xchg(&atom->counter, newval);
@@ -188,7 +194,7 @@ unsigned int atomic_raw_xchg_uint(volatile unsigned int *ptr,
 				  unsigned int newval)
 {
 	/* Atomically set new value and return old value. */
-#ifdef __riscv_atomic
+#ifndef ONLY_LRSC
 	return axchg(ptr, newval);
 #else
 	return xchg(ptr, newval);
@@ -199,7 +205,7 @@ unsigned long atomic_raw_xchg_ulong(volatile unsigned long *ptr,
 				    unsigned long newval)
 {
 	/* Atomically set new value and return old value. */
-#ifdef __riscv_atomic
+#ifndef ONLY_LRSC
 	return axchg(ptr, newval);
 #else
 	return xchg(ptr, newval);
@@ -234,12 +240,14 @@ unsigned long atomic_raw_xchg_ulong(volatile unsigned long *ptr,
 
 inline int atomic_raw_set_bit(int nr, volatile unsigned long *addr)
 {
-	return __atomic_op_bit(or, __NOP, nr, addr);
+	return 0;
+	//return __atomic_op_bit(or, __NOP, nr, addr);
 }
 
 inline int atomic_raw_clear_bit(int nr, volatile unsigned long *addr)
 {
-	return __atomic_op_bit(and, __NOT, nr, addr);
+	return 0;
+	//return __atomic_op_bit(and, __NOT, nr, addr);
 }
 
 inline int atomic_set_bit(int nr, atomic_t *atom)
