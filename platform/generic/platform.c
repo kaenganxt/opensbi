@@ -42,7 +42,7 @@ static void fw_platform_lookup_special(void *fdt, int root_offset)
 	const struct fdt_match *match;
 
 	for (pos = 0; pos < array_size(special_platforms); pos++) {
-		plat = special_platforms[pos];
+		plat = special_platforms[pos]; // TODO: Null pointer deref here (why?) GOT doesn't seem to be filled
 		if (!plat->match_table)
 			continue;
 

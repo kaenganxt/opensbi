@@ -47,6 +47,12 @@
 	.globl _start
 	.globl _start_warm
 _start:
+    csrr t0, 0xcd4 // Read current hart id
+_wait_copu:
+    bnez t0, _wait_copu
+
+    csrw 0x8c1, 0x1 // Only enable the CePU
+
 	/* Find preferred boot HART id */
 	MOV_3R	s0, a0, s1, a1, s2, a2
 	call	fw_boot_hart
@@ -220,10 +226,10 @@ _relocate_done:
 	lla	s4, _bss_start
 	lla	s5, _bss_end
 _bss_zero:
-	REG_S	zero, (s4)
+/*	REG_S	zero, (s4)
 	add	s4, s4, __SIZEOF_POINTER__
 	blt	s4, s5, _bss_zero
-
+*/
 	/* Setup temporary trap handler */
 	lla	s4, _start_hang
 	csrw	CSR_MTVEC, s4

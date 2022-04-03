@@ -500,7 +500,7 @@ void __noreturn sbi_init(struct sbi_scratch *scratch)
 	 * that platform can initialize platform specific per-HART CSRs
 	 * or per-HART devices.
 	 */
-	if (sbi_platform_nascent_init(plat))
+	if (sbi_platform_nascent_init(plat)) // TODO: Another null pointer deref
 		sbi_hart_hang();
 
 	if (coldboot)
