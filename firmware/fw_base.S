@@ -68,8 +68,8 @@ _try_lottery:
 	li	a7, 1
 //	START: amoadd.w a6, a7, (a6)
 0:	lr.w t0, (a6)
-	add t0, t0, a7
-	sc.w t1, t0, (a6)
+	add t1, t0, a7
+	sc.w t1, t1, (a6)
 	bnez t1, 0b
 	add a6, t0, zero
 //	END: amoadd.w a6, a7, (a6)
