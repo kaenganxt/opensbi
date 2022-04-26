@@ -32,6 +32,89 @@ static int truly_illegal_insn(ulong insn, struct sbi_trap_regs *regs)
 	return sbi_trap_redirect(regs, &trap);
 }
 
+static int amo_insn(ulong insn, struct sbi_trap_regs *regs) {
+	// TODO: Only works for rv32 right now
+	int action = (insn >> 27);
+	if ((action & 0x2) == 2) { // Is lr/sc
+		return truly_illegal_insn(insn, regs);
+	}
+	ulong rs1_val = GET_RS1(insn, regs);
+	ulong rs2_val = GET_RS2(insn, regs);
+	int aq = (insn >> 26) & 0x1;
+	int rl = (insn >> 25) & 0x1;
+
+	int return_val;
+	unsigned int old_value;
+	unsigned int new_value;
+
+	do {
+		if (aq) {
+			__asm__ __volatile__("lr.w.aq %0, (%1)" : "=r"(old_value) : "r"(rs1_val));
+		} else {
+			__asm__ __volatile__("lr.w %0, (%1)" : "=r"(old_value) : "r"(rs1_val));
+		}
+
+		switch (action) {
+			case 0b00000: // amoadd
+				new_value = old_value + rs2_val;
+				break;
+			case 0b00001: // amoswap
+				new_value = rs2_val;
+				break;
+			case 0b00100: // amoxor
+				new_value = old_value ^ rs2_val;
+				break;
+			case 0b01000: // amoor
+				new_value = old_value | rs2_val;
+				break;
+			case 0b01100: // amoand
+				new_value = old_value & rs2_val;
+				break;
+			case 0b10000: // amomin
+				if (((int) old_value) > ((int) rs2_val)) {
+					new_value = rs2_val;
+				} else {
+					new_value = old_value;
+				}
+				break;
+			case 0b10100: // amomax
+				if (((int) old_value) < ((int) rs2_val)) {
+					new_value = rs2_val;
+				} else {
+					new_value = old_value;
+				}
+				break;
+			case 0b11000: // amominu
+				if (old_value > rs2_val) {
+					new_value = rs2_val;
+				} else {
+					new_value = old_value;
+				}
+				break;
+			case 0b11100: // amomaxu
+				if (old_value < rs2_val) {
+					new_value = rs2_val;
+				} else {
+					new_value = old_value;
+				}
+				break;
+			default:
+				return truly_illegal_insn(insn, regs);
+		}
+
+		if (rl) {
+			__asm__ __volatile__("sc.w.rl %0, %1, (%2)" : "=r"(return_val) : "r"(new_value), "r"(rs1_val));
+		} else {
+			__asm__ __volatile__("sc.w %0, %1, (%2)" : "=r"(return_val) : "r"(new_value), "r"(rs1_val));
+		}
+	} while(return_val);
+
+	SET_RD(insn, regs, old_value);
+
+	regs->mepc += 4;
+	return 0;
+}
+
 static int system_opcode_insn(ulong insn, struct sbi_trap_regs *regs)
 {
 	int do_write, rs1_num = (insn >> 15) & 0x1f;
@@ -92,7 +175,7 @@ static illegal_insn_func illegal_insn_table[32] = {
 	truly_illegal_insn, /* 8 */
 	truly_illegal_insn, /* 9 */
 	truly_illegal_insn, /* 10 */
-	truly_illegal_insn, /* 11 */
+	amo_insn,           /* 11 */
 	truly_illegal_insn, /* 12 */
 	truly_illegal_insn, /* 13 */
 	truly_illegal_insn, /* 14 */

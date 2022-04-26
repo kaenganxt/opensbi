@@ -129,7 +129,7 @@ ulong sbi_get_insn(ulong mepc, struct sbi_trap_info *trap)
 	asm volatile(
 	    "add %[tinfo], %[taddr], zero\n"
 	    "csrrw %[mtvec], " STR(CSR_MTVEC) ", %[mtvec]\n"
-	    "csrrs %[mstatus], " STR(CSR_MSTATUS) ", %[mprv]\n"
+	    "csrrs %[mstatus], " STR(CSR_MSTATUS) ", %[mprv]\n" // TODO: Fails because it mepc contains virtual address that is not resolved...
 	    "lhu %[insn], (%[addr])\n"
 	    "andi %[ttmp], %[insn], 3\n"
 	    "addi %[ttmp], %[ttmp], -3\n"

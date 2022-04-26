@@ -16,19 +16,21 @@
 extern struct fdt_serial fdt_serial_uart8250;
 extern struct fdt_serial fdt_serial_sifive;
 extern struct fdt_serial fdt_serial_litex;
-extern struct fdt_serial fdt_serial_htif;
+//extern struct fdt_serial fdt_serial_htif;
 extern struct fdt_serial fdt_serial_shakti;
 extern struct fdt_serial fdt_serial_gaisler;
 extern struct fdt_serial fdt_serial_xlnx_uartlite;
+extern struct fdt_serial fdt_serial_paranut;
 
 static struct fdt_serial *serial_drivers[] = {
 	&fdt_serial_uart8250,
 	&fdt_serial_sifive,
 	&fdt_serial_litex,
-	&fdt_serial_htif,
+//	&fdt_serial_htif,
 	&fdt_serial_shakti,
 	&fdt_serial_gaisler,
 	&fdt_serial_xlnx_uartlite,
+	&fdt_serial_paranut,
 };
 
 static struct fdt_serial dummy = {
