@@ -17,6 +17,17 @@
 #include <sbi/sbi_trap.h>
 #include <sbi/sbi_unpriv.h>
 
+#define ENABLE_MPRV(mstatus) asm volatile( \
+		"csrrs %[mstatus], " STR(CSR_MSTATUS) ", %[mprv]\n" \
+		: [mstatus] "+&r"(mstatus) \
+		: [mprv] "r"(MSTATUS_MPRV) \
+		: \
+	);
+#define DISABLE_MPRV(mstatus) asm volatile( \
+		"csrw " STR(CSR_MSTATUS) ", %[mstatus]\n" \
+		: [mstatus] "+&r"(mstatus) \
+	);
+
 typedef int (*illegal_insn_func)(ulong insn, struct sbi_trap_regs *regs);
 
 static int truly_illegal_insn(ulong insn, struct sbi_trap_regs *regs)
@@ -38,21 +49,24 @@ static int amo_insn(ulong insn, struct sbi_trap_regs *regs) {
 	if ((action & 0x2) == 2) { // Is lr/sc
 		return truly_illegal_insn(insn, regs);
 	}
-	ulong rs1_val = GET_RS1(insn, regs);
+	register ulong rs1_val = GET_RS1(insn, regs);
 	ulong rs2_val = GET_RS2(insn, regs);
-	int aq = (insn >> 26) & 0x1;
-	int rl = (insn >> 25) & 0x1;
+	register int aq = (insn >> 26) & 0x1;
+	register int rl = (insn >> 25) & 0x1;
 
-	int return_val;
-	unsigned int old_value;
-	unsigned int new_value;
+	register int return_val;
+	register unsigned int old_value;
+	register unsigned int new_value;
+	register ulong mstatus = 0;
 
 	do {
+		ENABLE_MPRV(mstatus);
 		if (aq) {
-			__asm__ __volatile__("lr.w.aq %0, (%1)" : "=r"(old_value) : "r"(rs1_val));
+			asm volatile("lr.w.aq %0, (%1)" : "=r"(old_value) : "r"(rs1_val));
 		} else {
-			__asm__ __volatile__("lr.w %0, (%1)" : "=r"(old_value) : "r"(rs1_val));
+			asm volatile("lr.w %0, (%1)" : "=r"(old_value) : "r"(rs1_val));
 		}
+		DISABLE_MPRV(mstatus);
 
 		switch (action) {
 			case 0b00000: // amoadd
@@ -102,11 +116,13 @@ static int amo_insn(ulong insn, struct sbi_trap_regs *regs) {
 				return truly_illegal_insn(insn, regs);
 		}
 
+		ENABLE_MPRV(mstatus);
 		if (rl) {
-			__asm__ __volatile__("sc.w.rl %0, %1, (%2)" : "=r"(return_val) : "r"(new_value), "r"(rs1_val));
+			asm volatile("sc.w.rl %0, %1, (%2)" : "=r"(return_val) : "r"(new_value), "r"(rs1_val));
 		} else {
-			__asm__ __volatile__("sc.w %0, %1, (%2)" : "=r"(return_val) : "r"(new_value), "r"(rs1_val));
+			asm volatile("sc.w %0, %1, (%2)" : "=r"(return_val) : "r"(new_value), "r"(rs1_val));
 		}
+		DISABLE_MPRV(mstatus);
 	} while(return_val);
 
 	SET_RD(insn, regs, old_value);
